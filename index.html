@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Helmet System - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/leaflet.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.3/leaflet.js"></script>
+    <style>
+        body {
+            background-color: #d1f7c4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 22px;
+            color: #fff;
+        }
+
+        .navbar {
+            background-color: #28a745;
+            color: #fff;
+        }
+
+        .live-feed video {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+        }
+
+        .card {
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .stats-card {
+            color: white;
+            font-size: 18px;
+            padding: 30px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 120px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .bg-custom-blue {
+            background-color: #007bff;
+        }
+
+        .bg-custom-green {
+            background-color: #28a745;
+        }
+
+        .bg-custom-orange {
+            background-color: #ffc107;
+        }
+
+        .bg-custom-red {
+            background-color: #dc3545;
+        }
+
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            #map {
+                height: 300px;
+            }
+        }
+
+        .table th,
+        .table td {
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        .card-header {
+            background-color: #417189;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            font-size: 20px;
+            padding: 15px;
+        }
+
+        .table-responsive {
+            margin-top: 20px;
+        }
+
+        .btn-light {
+            color: #333;
+            background-color: #fff;
+            border-color: #ccc;
+        }
+
+        .btn-light:hover {
+            background-color: #f4f4f4;
+            border-color: #999;
+        }
+
+        .badge {
+            font-size: 12px;
+        }
+
+        .footer {
+            background-color: #333;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .niv {
+            color: #d1f7c4;
+            font-size: 19px;
+            font-weight: bold;
+        }
+
+        .violations-log {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg text-white">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">IoT Based Helmet and Two-Wheeler Rider Violation 
+                Detection System</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item niv"><a class="nav-link" href="reports.html">Violation Logs</a></li>
+                    <li class="nav-item niv"><a class="nav-link" href="admin.html">Admin Panel</a></li>
+                    <li class="nav-item niv"><a class="nav-link" href="login.html">Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dashboard -->
+    <div class="container-fluid my-4">
+        <div class="row">
+            <!-- Stats and Map -->
+            <div class="col-lg-6">
+                <!-- Statistics -->
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="stats-card bg-custom-blue">
+                            <h4>Total Violations</h4>
+                            <h2 id="total-violations">0</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="stats-card bg-custom-green">
+                            <h4>SMS Sent</h4>
+                            <h2 id="sms-sent">0</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stats-card bg-custom-orange">
+                            <h4>Unresolved Cases</h4>
+                            <h2 id="unresolved-cases">0</h2>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stats-card bg-custom-red">
+                            <h4>Today's Violations</h4>
+                            <h2 id="todays-violations">0</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map -->
+                <div class="card">
+                    <div class="card-header">
+                        Violation Map
+                    </div>
+                    <div class="card-body">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Feed -->
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        Live Traffic Feed
+                    </div>
+                    <div class="card-body live-feed">
+                        <video controls autoplay muted>
+                            <source src="assets/videos/video_feed.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+
+                <!-- Violations Log - Placed below the video -->
+                <div class="card violations-log">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Violation Logs</span>
+                        <button class="btn btn-light btn-sm" id="export-btn">Export Logs</button>
+                    </div>
+                    <div class="card-body table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>License Plate</th>
+                                    <th>Violation Type</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="violations-table">
+                                <!-- Data to be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 IoT Helmet System. All rights reserved.</p>
+    </div>
+
+    <script>
+        // Map Initialization
+        const map = L.map('map').setView([33.6844, 73.0479], 13); // Coordinates for Islamabad
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Fetching and Updating Dashboard Data
+        function updateDashboard() {
+            axios.get('server/dashboard-data') // Replace with your endpoint
+                .then(response => {
+                    const data = response.data;
+
+                    // Update Statistics
+                    document.getElementById('total-violations').textContent = data.totalViolations;
+                    document.getElementById('sms-sent').textContent = data.smsSent;
+                    document.getElementById('unresolved-cases').textContent = data.unresolvedCases;
+                    document.getElementById('todays-violations').textContent = data.todaysViolations;
+
+                    // Update Violations Table
+                    const violationsTable = document.getElementById('violations-table');
+                    violationsTable.innerHTML = '';
+                    data.violations.forEach((violation, index) => {
+                        const row = `<tr>
+                            <td>${index + 1}</td>
+                            <td>${violation.licensePlate}</td>
+                            <td>${violation.violationType}</td>
+                            <td>${violation.date}</td>
+                            <td><span class="badge bg-${violation.status === 'SMS Sent' ? 'success' : 'warning'}">${violation.status}</span></td>
+                        </tr>`;
+                        violationsTable.innerHTML += row;
+                    });
+                })
+                .catch(error => console.error(error));
+        }
+
+        // Export Violation Logs
+        document.getElementById('export-btn').addEventListener('click', function () {
+            axios.get('server/export-logs') // Replace with your endpoint
+                .then(response => {
+                    const logsData = response.data;
+                    const ws = XLSX.utils.json_to_sheet(logsData);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Violation Logs");
+                    XLSX.writeFile(wb, "Violation_Logs.xlsx");
+                })
+                .catch(error => console.error(error));
+        });
+
+        // Initial Data Fetch
+        updateDashboard();
+        setInterval(updateDashboard, 5000); // Refresh data every 5 seconds
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
